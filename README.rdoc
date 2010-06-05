@@ -64,3 +64,35 @@ The process works as follows:
 * The worker continues it's loop of polling for new <tt>unstarted</tt> jobs
 * The client, which has been polling the table, waiting for the job to change to the <tt>finished</tt> state returns the row, deletes the row from the database, and returns it to the script 
 
+=== Ensuring each worker works on a different task
+If several workers are polling the <tt>tasks</tt> table simultaneously they can both <tt>SELECT</tt> the same task/row, <tt>UPDATE</tt> that row (to state <tt>in_progress</tt>), and start work on the task.
+
+* <tt>SELECT</tt>s a row with state <tt>unstarted</tt> (let's assume here the row has the value <tt>0</tt> in it's <tt>lock_version</tt> field)
+* Create a task object from the row
+* Change the <tt>state</tt> of the task object to <tt>in_progress</tt>
+* Increment the object's <tt>lock_version</tt> field
+* Issue an update for the row corresponding to the task object like this: <tt>UPDATE tasks SET state='in_progress', lock_version=1 WHERE id=1234 AND lock_version=0</tt>
+* If the number of rows updated is 1 then the worker successfully got the row, if it's 0 then some other worker issued an update and got the task so the worker continues looking for a new task
+
+== Performance
+You can test the performance by running <tt>watch_performance.rb</tt>. Every second it will print the number of tasks that were completed in the last second.
+
+The Redis system is about 15 times faster than the MySQL method (and uses almost no CPU when not busy) on my laptop. I suspect when there are more clients, and more jobs in the system the MySQL performance will fall even further (due worse locking problems).
+
+Using a table of type <tt>MEMORY</tt> rather than <tt>INNODB</tt> does not make the MySQL implementation any faster. It could be that the lock contention could be improved by returning a random row (rather than the first row) to the client. This would require a full table scan (<tt>ORDER BY RAND</tt> means computing a random number for <i>every</i> row), but unless the table is very large (which it should never be) this should be no problem.
+
+Running it all on my laptop (a 3 Ghz Macbook Pro) I get about 1,700 jobs/second with Redis, and about 110 jobs/second with MySQL. 
+
+== Known limitations
+* You can only give a single parameter to a task (the <tt>input</tt> field)
+* The MySQL version limits the <tt>input</tt>s and <tt>output</tt>s to 256 characters
+* If a worker dies while it is processing a job the client will wait forever for the job to be completed as there's no detection that a worker has died / failed leading to another worker processing the zombie job 
+
+== Future plans
+* Provide an 'out of comms channel' method of storing the input/ouputs of tasks (e.g. on NFS) for tasks where the input/output is large (multi-megabyte)
+* Improve the MySQL performance
+* Make it entirely transparent, through proxies that hide everything on the client side (so you just do <tt>CalculateMultipleOfPi.execute(42)</tt> on the client and get the response <i>as if</i> <tt>CalculateMultipleOfPi.execute(42)</tt> were running locally)
+* Provide a way to run things asychronously
+* Implement an easy way to execute a callback when a remote job finishes execution
+* Specify connection details in a separate <tt>yaml</tt> configuration file
+* Resubmit jobs where the worker has died (I'll probably never do that with this toy)
