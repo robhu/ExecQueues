@@ -21,7 +21,9 @@ while true
   task = Task.new(:type => 'CalculateMultipleOfPi', :input => rand(1000))
   #task = Task.new(:type => 'DoSomethingSlowly', :input => rand(1000))
   task.save
-  Storage.bget_finished_and_delete(task.id).inspect
+  puts "[#{Time.now}] Submitted: #{task.inspect}"
+  puts "[#{Time.now}] Received:  #{Storage.bget_finished_and_delete(task.id).inspect}"
+  puts ""
   
   Storage.counter_incr('jobs_done')
 end

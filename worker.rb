@@ -13,9 +13,10 @@ while true
   instance_eval("@interface = #{task.type}.new")
 
   # Get it to do whatever work it has to do
-  puts "Beginning execution of #{task.inspect}"
+  #puts "Beginning: #{task.inspect}"
   task.output = @interface.execute(task.input)
-  puts "Finished"
+  #puts "Finished: #{task.inspect}"
+  #puts ""
   
   task.state = "finished"
   task.save
