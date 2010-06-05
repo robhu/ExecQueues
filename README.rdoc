@@ -67,6 +67,7 @@ The process works as follows:
 === Ensuring each worker works on a different task
 If several workers are polling the <tt>tasks</tt> table simultaneously they can both <tt>SELECT</tt> the same task/row, <tt>UPDATE</tt> that row (to state <tt>in_progress</tt>), and start work on the task.
 
+The way I have prevented this is by using {optimistic locking}[http://c2.com/cgi/wiki?OptimisticLocking]. The process for a worker is like this:
 * <tt>SELECT</tt>s a row with state <tt>unstarted</tt> (let's assume here the row has the value <tt>0</tt> in it's <tt>lock_version</tt> field)
 * Create a task object from the row
 * Change the <tt>state</tt> of the task object to <tt>in_progress</tt>
