@@ -1,0 +1,11 @@
+DROP TABLE IF EXISTS tasks;
+CREATE TABLE tasks (
+  id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  state VARCHAR(20) NOT NULL,
+  type VARCHAR(50) NOT NULL,
+  input VARCHAR(255),
+  output VARCHAR(255),
+  lock_version INT DEFAULT 0
+) ENGINE=MEMORY;
+
+CREATE INDEX idxTasksState ON tasks(state);
