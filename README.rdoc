@@ -1,6 +1,6 @@
 = ExecQueues
 
-This is just me playing around with how to execute jobs on remote machines and get back the results via some communications channel (referred to as 'the storage backend' throughout the rest of this document). This toy currently supports messaging via Redis or MySQL. 
+This is just me playing around with how to execute jobs on remote machines and get back the results via some communications channel (referred to as 'the storage backend' throughout the rest of this document). This toy currently supports messaging via Redis or MySQL. The initial thinking behind this is outlined in the {corresponding post on my blog}[http://robhu.livejournal.com/764917.html].
 
 The idea is that you have some number of machines that you want to run jobs on (e.g. on a farm), and some clients that what to execute those methods which don't want to know the details of which machines the workers run on, how many of them there are, or how to transfer the inputs / outputs of those methods.
 
