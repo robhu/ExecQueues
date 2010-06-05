@@ -21,3 +21,57 @@ If you do this correctly you should see the client's printing out something like
     [Sat Jun 05 18:15:59 +0100 2010] Received:  #<Task:0x1014ad380 @id=272054, @state="finished", @type="CalculateMultipleOfPi", @output=1536.23880585, @input=489>
 
     ...
+
+== Creating new types of tasks
+To create a new task type put a <tt>.rb</tt> file in <tt>task_types</tt> that contains a class file that implements the <tt>execute</tt> method. For example:
+
+    class LocalExec
+      def execute(command)
+        `#{command}`
+      end
+    end
+
+or
+
+    class WhatMachineIsThis
+      def execute(parameter)
+        `hostname`
+      end
+    end
+
+Whatever the <tt>execute</tt> method returns will be what is passed back to the client that requested the job be executed.
+
+== Redis implementation
+The Redis implementation works like this:
+* A task is created on the client, enqueued on <tt>unstarted</tt> queue (list) in Redis, the task is returned to the client with a unique <tt>id</tt>
+* The client starts doing a <tt>blpop</tt> (blocking pop) on a queue called <tt>finished:[id]</tt>
+* The workers have been doing a <tt>blpop</tt> (blocking pop) on the <tt>unstarted</tt> queue, so they pop the new task off
+* Based on the <tt>type</tt> field the correct class is instantiated, the <tt>execute</tt> method is called, the work is done, and the result is saved in the <tt>output</tt> field of the task
+* The task is enqueued on to a queue called <tt>finished:[id]</tt>
+* The worker continues it's loop of doing <tt>blpop</tt> on <tt>unstarted</tt>, waiting for new jobs to run
+* The <tt>blpop</tt> on <tt>finished:[id]</tt> returns the completed task to the client 
+
+== MySQL implementation
+A table, <tt>tasks</tt> is used to store the tasks.
+
+The process works as follows:
+* A task is created on the client, and is <tt>INSERT</tt>ed in to the table, the task is returned to the client with a unique <tt>id</tt>
+* The client begins polling the <tt>tasks</tt> table, looking for that <tt>id</tt> with a state of <tt>finished</tt>
+* The workers poll the <tt>tasks</tt> table looking for tasks with state <tt>unstarted</tt>
+* When a worker finds such a task it issues an <tt>UPDATE</tt>, changing the state for that task to <tt>in_progress</tt> (this is to stop other workers trying to work on it)
+* Based on the <tt>type</tt> field the correct class is instantiated, the <tt>execute</tt> method is called, the work is done, and the result is saved in the <tt>output</tt> field of the task
+* An <tt>UPDATE</tt> is issued updating the row with the new <tt>output</tt> and the new state <tt>finished</tt>
+* The worker continues it's loop of polling for new <tt>unstarted</tt> jobs
+* The client, which has been polling the table, waiting for the job to change to the <tt>finished</tt> state returns the row, deletes the row from the database, and returns it to the script 
+
+=== Ensuring each worker works on a different task
+If several workers are polling the <tt>tasks</tt> table simultaneously they can both <tt>SELECT</tt> the same task/row, <tt>UPDATE</tt> that row (to state <tt>in_progress</tt>), and start work on the task.
+
+The way I have prevented this is by using {optimistic locking}[link:http://c2.com/cgi/wiki?OptimisticLocking]. The process for a worker is like this:
+* <tt>SELECT</tt>s a row with state <tt>unstarted</tt> (let's assume here the row has the value <tt>0</tt> in it's <tt>lock_version</tt> field)
+* Create a task object from the row
+* Change the <tt>state</tt> of the task object to <tt>in_progress</tt>
+* Increment the object's <tt>lock_version</tt> field
+* Issue an update for the row corresponding to the task object like this: <tt>UPDATE tasks SET state='in_progress', lock_version=1 WHERE id=1234 AND lock_version=0</tt>
+* If the number of rows updated is 1 then the worker successfully got the row, if it's 0 then some other worker issued an update and got the task so the worker continues looking for a new task
+
