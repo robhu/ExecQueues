@@ -64,14 +64,3 @@ The process works as follows:
 * The worker continues it's loop of polling for new <tt>unstarted</tt> jobs
 * The client, which has been polling the table, waiting for the job to change to the <tt>finished</tt> state returns the row, deletes the row from the database, and returns it to the script 
 
-=== Ensuring each worker works on a different task
-If several workers are polling the <tt>tasks</tt> table simultaneously they can both <tt>SELECT</tt> the same task/row, <tt>UPDATE</tt> that row (to state <tt>in_progress</tt>), and start work on the task.
-
-The way I have prevented this is by using {optimistic locking}[link:http://c2.com/cgi/wiki?OptimisticLocking]. The process for a worker is like this:
-* <tt>SELECT</tt>s a row with state <tt>unstarted</tt> (let's assume here the row has the value <tt>0</tt> in it's <tt>lock_version</tt> field)
-* Create a task object from the row
-* Change the <tt>state</tt> of the task object to <tt>in_progress</tt>
-* Increment the object's <tt>lock_version</tt> field
-* Issue an update for the row corresponding to the task object like this: <tt>UPDATE tasks SET state='in_progress', lock_version=1 WHERE id=1234 AND lock_version=0</tt>
-* If the number of rows updated is 1 then the worker successfully got the row, if it's 0 then some other worker issued an update and got the task so the worker continues looking for a new task
-
