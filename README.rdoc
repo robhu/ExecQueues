@@ -13,7 +13,7 @@ The <tt>worker.rb</tt> script acts as the worker, run this on your farm (or equi
 * Amend the <tt>Storage.backend=</tt> line in <tt>client.rb</tt> and <tt>worker.rb</tt> according to the storage backend you want to use
 * Start some <tt>worker.rb</tt> and <tt>client.rb</tt> processes
 
-If you do this correctly you should see the client's printing out something like this:
+If you do this correctly you should see the clients printing out something like this:
     [Sat Jun 05 18:15:59 +0100 2010] Submitted: #<Task:0x1014affb8 @id=272053, @state="unstarted", @type="CalculateMultipleOfPi", @input=759>
     [Sat Jun 05 18:15:59 +0100 2010] Received:  #<Task:0x1014aed70 @id=272053, @state="finished", @type="CalculateMultipleOfPi", @output=2384.46882135, @input=759>
 
